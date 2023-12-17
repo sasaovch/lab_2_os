@@ -1,0 +1,5 @@
+.vscode/
+backup/
+example_module/
+example_procfs/
+lib/
