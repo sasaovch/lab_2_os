@@ -14,7 +14,7 @@ const char *pci_ids_filepath = "pci.ids";
 const char *separator = "\n";
 static int is_binary = 0;
 
-bool lookup_ids(const char *ids_filepath, int class_bin, int vendor_bin, int device_bin, char *class_str, char *vendor_str, char *device_str) {
+bool lookup_ids(const char *ids_filepath, int vendor_bin, int device_bin, char *class_str, char *vendor_str, char *device_str) {
     FILE *file = fopen(ids_filepath, "r");
     if (!file) 
     {
@@ -86,10 +86,12 @@ void print_pci_devices()
                 char class_str[129];
                 char vendor_str[129];
                 char device_str[129];
-
-                if (lookup_ids(pci_ids_filepath, class_bin, vendor_bin, device_bin, class_str, vendor_str, device_str)) 
+                if (lookup_ids(pci_ids_filepath, vendor_bin, device_bin, class_str, vendor_str, device_str)) 
                 {
-                    printf("Class: %04X\n", class_bin);
+                    unsigned short int swapped;
+                    swapped = ((class_bin & 0xF0F0) >> 4) | ((class_bin & 0x0F0F) << 4);
+
+                    printf("Class: %04X\n", swapped);
                     printf("Vendor: ID - %04X, name - %s\n", vendor_bin, vendor_str);
                     printf("Device: ID - %04X, name - %s\n\n", device_bin, device_str);
                 }

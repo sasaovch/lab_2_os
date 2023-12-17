@@ -30,7 +30,6 @@ struct pci_dev *dev = NULL;
 static ssize_t procfile_read(struct file *filePointer, char __user *buffer, 
                              size_t buffer_length, loff_t *offset) 
 {
-    dev = NULL;
     int vendor_id = target_vendor, device_id = target_device;
     int data_size = 0;
     
