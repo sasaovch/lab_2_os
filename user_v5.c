@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
@@ -7,6 +8,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <getopt.h>
+#include <sys/file.h>
 
 #define BUF_SIZE 4097
 #define PROC_FILE_PATH "/proc/pci_info_v5"
@@ -55,19 +57,10 @@ bool lookup_ids(const char *ids_filepath, int vendor_bin, int device_bin, char *
     return (found_vendor && found_device);
 }
 
-void print_pci_devices() 
+void print_pci_devices(int fd) 
 {
-    int fd;
     ssize_t read_size;
     char buffer[BUF_SIZE];
-
-    fd = open(PROC_FILE_PATH, O_RDONLY);
-
-    if (fd == -1) 
-    {
-        perror("Failed to open the proc file");
-        return;
-    }
 
     while ((read_size = read(fd, buffer, sizeof(buffer)-1)) > 0) 
     {
@@ -110,23 +103,11 @@ void print_pci_devices()
     {
         perror("Failed to read from the proc file");
     }
-
-    close(fd);
 }
 
 
-void send_ids(int vendor_id, int device_id) 
+void send_ids(int vendor_id, int device_id, int fd) 
 {
-    int fd;
-
-    fd = open(PROC_FILE_PATH, O_WRONLY);
-
-    if (fd == -1) 
-    {
-        perror("Failed to open the proc file for writing");
-        return;
-    }
-
     char buffer[64];
     int len = sprintf(buffer, "%x:%x", vendor_id, device_id);
 
@@ -134,7 +115,29 @@ void send_ids(int vendor_id, int device_id)
     {
         perror("Failed to write the IDs to the proc file");
     }
+}
 
+void read_write_proc_file(int vendor_id, int device_id) 
+{
+    int fd;
+
+    fd = open(PROC_FILE_PATH, O_RDWR);
+
+    if (fd == -1) 
+    {
+        perror("Failed to open the proc file for writing");
+        return;
+    }
+    if (flock(fd, LOCK_EX) == -1) {
+        perror("Error to lock file");
+        return;
+    }
+    send_ids(vendor_id, device_id, fd);
+    print_pci_devices(fd);
+    if (flock(fd, LOCK_UN) == -1) {
+        perror("Error to unlock file");
+        return;
+    }
     close(fd);
 }
 
@@ -163,9 +166,8 @@ int main(int argc, char *argv[])
         switch (option)
         {
         case 'a':
-            send_ids(vendor_id, device_id);
             printf("Displaying PCI devices\n\n");
-            print_pci_devices();
+            read_write_proc_file(vendor_id, device_id);
             return 0;
         case 'h':
             print_help(argv[0]);
@@ -189,9 +191,8 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    send_ids(vendor_id, device_id);
     printf("Displaying filtered PCI devices by vendor %04X, and device %04X:\n\n", vendor_id, device_id);
-    print_pci_devices();
+    read_write_proc_file(vendor_id, device_id);
 
     return 0;
 }
